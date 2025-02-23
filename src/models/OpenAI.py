@@ -204,3 +204,56 @@ class OpenAIV2Model(OpenAIModel):
 
         return response["choices"][0]["message"]["content"], run_details
 
+import openai
+from openai import OpenAI
+import time
+from typing import List, Union, Dict
+import json
+import os
+
+class OpenAIModel:
+    def __init__(
+        self,
+        model_name: str = "gpt-4",     # 模型名称
+        temperature: float = 0,         # 采样温度
+        top_p: float = 0.95,           # 核采样阈值
+    ):
+        """
+        初始化OpenAI模型
+        Args:
+            model_name: 使用的模型名称(如gpt-3.5-turbo, gpt-4等)
+            temperature: 生成文本的随机性(0-2之间,越大越随机)
+            top_p: 核采样的概率阈值(0-1之间)
+        """
+        self.model_name = model_name
+        self.temperature = temperature
+        self.top_p = top_p
+        self.client = OpenAI()    # 创建OpenAI客户端
+        
+    def generate(self, prompt: str) -> str:
+        """
+        生成代码
+        Args:
+            prompt: 输入提示
+        Returns:
+            生成的代码文本
+        """
+        while True:
+            try:
+                # 调用OpenAI API生成代码
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }],
+                    temperature=self.temperature,
+                    top_p=self.top_p
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                # 发生错误时等待并重试
+                print(f"Error: {str(e)}")
+                time.sleep(3)
+                continue
+

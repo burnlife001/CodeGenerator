@@ -1,18 +1,20 @@
-from models.Gemini import *
-from models.OpenAI import *
-from models.GroqModel import *
+from models.Gemini import Gemini
+from models.OpenAI import OpenAIModel
+from models.TencentCloud import TencentCloudModel
+from models.Ollama import OllamaModel
 
 class ModelFactory:
     @staticmethod
-    def get_model_class(model_provider_name: str):
-        model_provider_name = model_provider_name.lower()
-        if model_provider_name == "gemini":
-            return Gemini
-        elif model_provider_name == "openai":
-            return OpenAIV1Model
-        elif model_provider_name == "openai-v2":
-            return OpenAIV2Model
-        elif model_provider_name == "groq":
-            return GroqModel
-        else:
-            raise Exception(f"Unknown model provider name {model_provider_name}")
+    def get_model_class(provider: str):
+        """获取模型类"""
+        provider_map = {
+            "OpenAI": OpenAIModel,
+            "Gemini": Gemini,
+            "TencentCloud": TencentCloudModel,
+            "ollama": OllamaModel
+        }
+        
+        if provider not in provider_map:
+            raise ValueError(f"不支持的模型提供商: {provider}")
+            
+        return provider_map[provider]

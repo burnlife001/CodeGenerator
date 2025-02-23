@@ -58,101 +58,45 @@ class BaseStrategy(object):
     def run_single_pass(self, data_row: dict):
         pass
 
-    def run(self, record_full_result):
-        # self.data.data.reverse()
+    def run(self, save_details=False):
+        """运行代码生成"""
+        self.run_details = {}  # 初始化为空字典
         
-        num_items = len(self.data)
-        num_success = 0
-
-        for i, data_row in enumerate(self.data):
-            if self.verbose >= VERBOSE_FULL:
-                print("", flush=True, end="")
-
-            found = False
-            for j in range(len(self.results)):
-                if self.results[j]["task_id"] == data_row[self.data.id_key]:
-                    item = copy.deepcopy(self.results[j])
-                    cur_pass = len(item["source_codes"])
-                    is_solved = item["is_solved"]
-                    cur_imp = item["source_codes"][-1]
-                    found = True
-                    break
-            if not found:
-                item = {
-                    self.data.id_key: data_row[self.data.id_key],
-                    "task_id": data_row[self.data.id_key],
-                    "language": self.language,
-                    "source_codes": [],
-                    "run_details": [],
-                    "no_of_try": 0,
+        for idx, data_row in enumerate(self.data):
+            try:
+                # 标准化数据行格式
+                if isinstance(data_row, list):
+                    task_id = f"task_{idx}"
+                    normalized_data = {
+                        "task_id": task_id,
+                        "prompt": str(data_row)
+                    }
+                elif isinstance(data_row, dict):
+                    task_id = data_row.get("task_id", f"task_{idx}")
+                    normalized_data = data_row
+                else:
+                    task_id = f"task_{idx}"
+                    normalized_data = {
+                        "task_id": task_id,
+                        "prompt": str(data_row)
+                    }
+                
+                response = self.run_single_pass(normalized_data)
+                
+                # 如果不保存详情，安全地删除 details 字段
+                if not save_details and 'details' in self.run_details:
+                    del self.run_details['details']
+                
+                # 保存结果
+                result = {
+                    "task_id": task_id,
+                    "completion": response
                 }
-
-                cur_pass = 0
-                is_solved = False
-                cur_imp = ""
-
-            while cur_pass < self.pass_at_k and not is_solved:
-                # initialize it for each run
-                self.run_details = {}
-                # for _ in range(10):
-                #     try:
-                response = self.run_single_pass(data_row)
-                #     break
-                # except Exception as e:
-                #     time.sleep(5)
-                #     pass
-
-                cur_imp = parse_response(response)
-
-                item["source_codes"].append(cur_imp)
-
-                # Remove Full details
-                if not record_full_result:
-                    del self.run_details["details"]
-
-                item["run_details"].append(self.run_details)
+                if hasattr(self, 'run_details') and self.run_details:
+                    result.update(self.run_details)
+                    
+                self.results.save_result(result)
                 
-                item["no_of_try"] += 1
-
-                is_solved = self.data.evaluate(
-                    item=data_row,
-                    cur_imp=cur_imp,
-                    language=self.language
-                )
-
-                cur_pass += 1
-            
-            if is_solved:
-                num_success += 1
-
-            item["is_solved"] = is_solved
-
-            self.results.get_results().insert(i, item)
-
-            # Deleting duplicate results
-            k = i + 1
-            while True:
-                # Termination condition
-                if k >= len(self.results):
-                    break
-                
-                # Deleting duplicate results
-                if self.results[k]["task_id"] == data_row[self.data.id_key]:
-                    del self.results.results[k]
-                
-                # Increment
-                k += 1
-
-            if self.verbose >= VERBOSE_MINIMAL:
-                print(f'completed {i+1}/{num_items}, Solved: {self.results[i]["is_solved"]}, number of success = {num_success}/{i+1}, acc = {round(num_success/(i+1)*100, 2)}')
-            
-            if not found:
-                self.results.save_results()
-
-            if self.verbose >= VERBOSE_FULL:
-                print("", flush=True, end="")
-          
-        
-        if len(self.results) > len(self.data):
-            self.results.results = self.results[:len(self.data)]
-            self.results.save_results()
+            except Exception as e:
+                print(f"处理任务 {task_id} 时出错: {str(e)}")
+                continue
