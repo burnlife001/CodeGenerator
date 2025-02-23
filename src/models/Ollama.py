@@ -46,47 +46,70 @@ class OllamaModel(BaseModel):
     def prompt(self, processed_input: list[dict], frequency_penalty=0, presence_penalty=0) -> Tuple[str, Dict[str, Any]]:
         """发送提示并获取响应"""
         time.sleep(self.sleep_time)
-        start_time = time.perf_counter()
         
-        try:
-            # 只显示当前用户的输入
-            self.console.print("\n")
-            current_input = processed_input[-1]  # 获取最后一条输入
+        # 显示所有输入消息
+        self.console.print("")
+        for msg in processed_input:
             self.console.print(Panel(
-                current_input["content"],
-                title="[bold blue]USER[/bold blue]",
+                msg["content"],
+                title=f"[bold]{msg['role'].upper()}[/bold]",
                 border_style="blue"
             ))
             self.console.print("")
-            
+        
+        start_time = time.perf_counter()
+        
+        try:
             # API调用
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=processed_input,
+                max_tokens=self.max_tokens,
                 temperature=self.temperature,
                 top_p=self.top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                stop=None,
                 stream=False
             )
             
             content = response.choices[0].message.content
             taken_time = time.perf_counter() - start_time
             
-            # 显示模型的响应
+            # 显示响应内容
             self.console.print(Panel(
                 content,
-                title="[bold green]ASSISTANT[/bold green]",
+                title="[bold]ASSISTANT[/bold]",
                 border_style="green"
             ))
-            self.console.print(f"[dim]响应时间: {taken_time:.2f}秒[/dim]")
-            self.console.print("―" * 80 + "\n")
+            self.console.print("")
+            
+            # 获取token统计
+            prompt_tokens = getattr(response.usage, 'prompt_tokens', 0)
+            completion_tokens = getattr(response.usage, 'completion_tokens', 0)
+            total_tokens = getattr(response.usage, 'total_tokens', 0)
+            
+            # 显示统计信息
+            self.console.print(
+                f"[dim]Token统计: "
+                f"提示tokens={prompt_tokens}, "
+                f"完成tokens={completion_tokens}, "
+                f"总计={total_tokens} | "
+                f"响应时间: {taken_time:.2f}秒[/dim]"
+            )
+            self.console.print("―" * 80)
+            
+            # 记录使用情况
+            with open(usage_log_file_path, mode="a") as file:
+                file.write(f'{self.model_name},{prompt_tokens},{completion_tokens}\n')
             
             # 构建运行详情
             run_details = {
                 "api_calls": 1,
                 "taken_time": taken_time,
-                "prompt_tokens": getattr(response.usage, 'prompt_tokens', 0),
-                "completion_tokens": getattr(response.usage, 'completion_tokens', 0),
-                "total_tokens": getattr(response.usage, 'total_tokens', 0),
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
                 "details": [{
                     "model_name": self.model_name,
                     "model_prompt": processed_input,
@@ -94,6 +117,8 @@ class OllamaModel(BaseModel):
                     "max_tokens": self.max_tokens,
                     "temperature": self.temperature,
                     "top_p": self.top_p,
+                    "frequency_penalty": frequency_penalty,
+                    "presence_penalty": presence_penalty
                 }]
             }
             

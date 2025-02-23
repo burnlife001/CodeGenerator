@@ -61,8 +61,11 @@ class BaseStrategy(object):
     def run(self, save_details=False):
         """运行代码生成"""
         self.run_details = {}  # 初始化为空字典
+        total_tasks = len(self.data)
+        success_count = 0
+        solved_count = 0
         
-        for idx, data_row in enumerate(self.data):
+        for idx, data_row in enumerate(self.data, 1):
             try:
                 # 标准化数据行格式
                 if isinstance(data_row, list):
@@ -82,6 +85,20 @@ class BaseStrategy(object):
                     }
                 
                 response = self.run_single_pass(normalized_data)
+                
+                # 更新计数
+                if response:  # 如果有返回结果
+                    success_count += 1
+                if response and "correct" in normalized_data:  # 如果有正确性信息
+                    if normalized_data["correct"]:
+                        solved_count += 1
+                
+                # 显示进度
+                accuracy = (success_count / idx) * 100 if idx > 0 else 0
+                print(f"completed {idx}/{total_tasks}, "
+                      f"Solved: {bool(response)}, "
+                      f"number of success = {success_count}/{idx}, "
+                      f"acc = {accuracy:.2f}")
                 
                 # 如果不保存详情，安全地删除 details 字段
                 if not save_details and 'details' in self.run_details:
