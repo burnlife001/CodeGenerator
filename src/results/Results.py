@@ -19,11 +19,12 @@ class Results(object):
     def __init__(
         self, 
         result_path: str, 
-        discard_previous_run: bool = False
+        discard_previous_run: bool = True  # 默认清空之前的结果
     ):
         self.result_path = result_path
         self.discard_previous_run = discard_previous_run
         self._ensure_results_dir()
+        self.clear()  # 初始化时清空
         self.load_results()
 
     def _ensure_results_dir(self):
@@ -57,6 +58,12 @@ class Results(object):
                 self.results = read_jsonl(self.result_path)
         else:
             self.results = []
+
+    def clear(self):
+        """清空结果"""
+        if os.path.exists(self.result_path):
+            os.remove(self.result_path)
+        self.results = []
 
     def get_results(self):
         return self.results

@@ -60,7 +60,10 @@ class BaseStrategy(object):
 
     def run(self, save_details=False):
         """运行代码生成"""
-        self.run_details = {}  # 初始化为空字典
+        # 清空计数器和运行详情
+        self.run_details = {}
+        self.results.clear()  # 清空之前的结果
+        
         total_tasks = len(self.data)
         success_count = 0
         solved_count = 0
@@ -86,17 +89,19 @@ class BaseStrategy(object):
                 
                 response = self.run_single_pass(normalized_data)
                 
-                # 更新计数
-                if response:  # 如果有返回结果
+                # 更新计数和求解状态
+                is_success = bool(response)
+                is_solved = is_success and normalized_data.get("correct", False)
+                
+                if is_success:
                     success_count += 1
-                if response and "correct" in normalized_data:  # 如果有正确性信息
-                    if normalized_data["correct"]:
-                        solved_count += 1
+                if is_solved:
+                    solved_count += 1
                 
                 # 显示进度
                 accuracy = (success_count / idx) * 100 if idx > 0 else 0
                 print(f"completed {idx}/{total_tasks}, "
-                      f"Solved: {bool(response)}, "
+                      f"Solved: {is_solved}, "
                       f"number of success = {success_count}/{idx}, "
                       f"acc = {accuracy:.2f}")
                 
@@ -104,10 +109,14 @@ class BaseStrategy(object):
                 if not save_details and 'details' in self.run_details:
                     del self.run_details['details']
                 
-                # 保存结果
+                # 保存结果时添加完整信息
                 result = {
                     "task_id": task_id,
-                    "completion": response
+                    "completion": response,
+                    "is_solved": is_solved,
+                    "success": is_success,
+                    "source_codes": [response] if response else [],  # 添加 source_codes 字段
+                    "prompt": normalized_data.get("prompt", "")      # 保存原始提示
                 }
                 if hasattr(self, 'run_details') and self.run_details:
                     result.update(self.run_details)

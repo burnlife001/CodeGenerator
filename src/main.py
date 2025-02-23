@@ -237,6 +237,13 @@ class TeeStream:
     def flush(self):
         self.stdout.flush()
         self.file_stream.flush()
+        
+    def close(self):
+        """关闭文件流"""
+        if hasattr(self.file_stream, 'close'):
+            self.file_stream.close()
+        # 恢复标准输出
+        sys.stdout = self.stdout
 
 # 修改日志输出处理
 if STORE_LOG_IN_FILE.lower() == 'yes':
@@ -316,5 +323,9 @@ if "human" in DATASET.lower() or "mbpp" in DATASET.lower():
 print("===================\n")
 
 if STORE_LOG_IN_FILE.lower() == 'yes':
-    sys.stdout.close()
+    if hasattr(sys.stdout, 'close'):
+        sys.stdout.close()
+    # 确保日志文件被关闭
+    if 'log_file' in locals():
+        log_file.close()
 
